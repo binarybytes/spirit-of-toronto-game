@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <title>Spirit of Toronto Game</title>
+
 <style>
   body {
     margin: 0;
@@ -24,7 +25,6 @@
     top: 0;
     left: 0;
     z-index: 1;
-    background: transparent;
   }
 
   #ui {
@@ -41,16 +41,32 @@
 
 <div id="game-container">
   <canvas id="game" width="1376" height="768"></canvas>
-  <div id="ui">Retro Toronto Prototype</div>
+  <div id="ui">Loading Spirit of Toronto...</div>
 </div>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+const ui = document.getElementById("ui");
+
 // ===== LOAD BACKGROUND =====
 const background = new Image();
-background.src = "your-background.png"; // <-- PUT YOUR NEW IMAGE PATH HERE
+background.src = "your-background.png"; 
+// ⚠️ MAKE SURE THIS PATH IS CORRECT
+
+let backgroundLoaded = false;
+
+background.onload = () => {
+  backgroundLoaded = true;
+  ui.innerText = "Game Ready";
+  loop();
+};
+
+background.onerror = () => {
+  ui.innerText = "ERROR: Background not found (check file path)";
+  console.error("Background failed to load");
+};
 
 // ===== PLAYER =====
 const player = {
@@ -61,7 +77,6 @@ const player = {
   speed: 5
 };
 
-// Simple placeholder sprite (replace later)
 const playerImg = new Image();
 playerImg.src = "https://via.placeholder.com/50";
 
@@ -81,33 +96,32 @@ function update() {
 
 // ===== DRAW =====
 function draw() {
-  // 1. Background (ALWAYS FIRST)
+  if (!backgroundLoaded) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // background
   ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-  // Optional dark overlay for retro feel
+  // overlay
   ctx.fillStyle = "rgba(0,0,0,0.15)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // 2. Player
+  // player
   ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
 
-  // 3. Simple debug text
+  // debug text
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
-  ctx.fillText("Use arrow keys to move", 20, 30);
+  ctx.fillText("Arrow keys to move", 20, 30);
 }
 
-// ===== GAME LOOP =====
+// ===== LOOP =====
 function loop() {
   update();
   draw();
   requestAnimationFrame(loop);
 }
-
-// Start after background loads
-background.onload = () => {
-  loop();
-};
 </script>
 
 </body>
