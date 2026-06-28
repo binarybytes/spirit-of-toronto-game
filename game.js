@@ -11,7 +11,7 @@ const spiritImg = new Image();
 spiritImg.src = "assets/spirit.png";
 
 const holidayImg = new Image();
-spiritImg.src = "assets/holiday.png";
+holidayImg.src = "assets/holiday.png";
 
 const stitchImg = new Image();
 stitchImg.src = "assets/stitch.png";
@@ -60,12 +60,6 @@ document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
 // =====================
-// CHARACTER SYSTEM (UNIFIED)
-// =====================
-const SPRITE_COLS = 4;
-const SPRITE_ROWS = 5;
-
-// =====================
 // PLAYER (SPIRIT)
 // =====================
 const player = {
@@ -79,41 +73,32 @@ const player = {
 };
 
 // =====================
-// HOLIDAY (NPC)
+// HOLIDAY (RESTORED SIMPLE WORKING STYLE)
 // =====================
 const holiday = {
   x: 300,
   y: 300,
-  moving: false,
-  dir: 0,
   frame: 0,
-  tick: 0
+  tick: 0,
+  cols: 4,
+  rows: 5
 };
 
 // =====================
-// STITCH (NPC)
+// STITCH (FIXED SPRITE SHEET)
 // =====================
 const stitch = {
   x: 500,
   y: 200,
-  moving: false,
-  dir: 0,
   frame: 0,
-  tick: 0
+  tick: 0,
+  cols: 4,
+  rows: 5,
+  dir: 0
 };
 
 // =====================
-// GAME STATE / NEXT STEPS SYSTEM
-// =====================
-const game = {
-  mission: "find_holiday",
-  missionComplete: false,
-  canInteract: false,
-  nearbyNPC: null
-};
-
-// =====================
-// LOADERS
+// LOAD HANDLERS
 // =====================
 bgImg.onload = () => bgReady = true;
 
@@ -162,7 +147,7 @@ function updatePlayer() {
 }
 
 // =====================
-// NPC AI (HOLIDAY)
+// HOLIDAY (RESTORED FOLLOW AI)
 // =====================
 function updateHoliday() {
   const dx = player.x - holiday.x;
@@ -172,34 +157,25 @@ function updateHoliday() {
   if (d > 2) {
     holiday.x += (dx / d) * 2;
     holiday.y += (dy / d) * 2;
-    holiday.moving = true;
-  } else {
-    holiday.moving = false;
   }
 
-  holiday.dir = Math.abs(dx) > Math.abs(dy)
-    ? (dx > 0 ? 3 : 2)
-    : (dy > 0 ? 0 : 1);
-
   holiday.tick++;
-  if (holiday.tick % 10 === 0) {
-    holiday.frame = (holiday.frame + 1) % SPRITE_COLS;
+  if (holiday.tick % 12 === 0) {
+    holiday.frame = (holiday.frame + 1) % holiday.cols;
   }
 }
 
 // =====================
-// STITCH AI (IDLE PATROL)
+// STITCH (FIXED ANIMATION ONLY)
 // =====================
 function updateStitch() {
   stitch.tick++;
 
-  stitch.x += Math.sin(Date.now() * 0.001) * 0.3;
+  if (stitch.tick % 12 === 0) {
+    stitch.frame = (stitch.frame + 1) % stitch.cols;
+  }
 
   stitch.dir = 0;
-
-  if (stitch.tick % 12 === 0) {
-    stitch.frame = (stitch.frame + 1) % SPRITE_COLS;
-  }
 }
 
 // =====================
@@ -214,7 +190,7 @@ function updateCamera() {
 }
 
 // =====================
-// ANIMATION (PLAYER)
+// PLAYER ANIMATION
 // =====================
 function updateAnimation() {
   if (!player.moving) {
@@ -224,12 +200,12 @@ function updateAnimation() {
 
   player.tick++;
   if (player.tick % 10 === 0) {
-    player.frame = (player.frame + 1) % SPRITE_COLS;
+    player.frame = (player.frame + 1) % 4;
   }
 }
 
 // =====================
-// BACKGROUND (FIXED FOR SMALL IMAGE)
+// BACKGROUND (SAFE + ALWAYS VISIBLE)
 // =====================
 function drawBackground() {
   if (!bgReady) {
@@ -238,10 +214,11 @@ function drawBackground() {
     return;
   }
 
-  const x = (canvas.width / 2) - (bgImg.width / 2) - camera.x * 0.05;
-  const y = (canvas.height / 2) - (bgImg.height / 2) - camera.y * 0.05;
-
-  ctx.drawImage(bgImg, x, y);
+  ctx.drawImage(
+    bgImg,
+    (canvas.width - bgImg.width) / 2,
+    (canvas.height - bgImg.height) / 2
+  );
 }
 
 // =====================
@@ -262,11 +239,11 @@ function drawMap() {
 }
 
 // =====================
-// GENERIC SPRITE DRAW
+// SPRITE DRAWER
 // =====================
 function drawSprite(img, obj) {
-  const fw = img.width / SPRITE_COLS;
-  const fh = img.height / SPRITE_ROWS;
+  const fw = img.width / obj.cols;
+  const fh = img.height / obj.rows;
 
   ctx.drawImage(
     img,
@@ -282,10 +259,14 @@ function drawSprite(img, obj) {
 }
 
 // =====================
-// DRAW
+// DRAW ENTITIES
 // =====================
 function drawPlayer() {
-  drawSprite(spiritImg, player);
+  drawSprite(spiritImg, {
+    ...player,
+    cols: 4,
+    rows: 5
+  });
 }
 
 function drawHoliday() {
@@ -294,40 +275,6 @@ function drawHoliday() {
 
 function drawStitch() {
   drawSprite(stitchImg, stitch);
-}
-
-// =====================
-// INTERACTION SYSTEM (NEXT STEP HOOK)
-// =====================
-function checkInteraction() {
-  game.canInteract = false;
-  game.nearbyNPC = null;
-
-  const npcs = [holiday, stitch];
-
-  for (let npc of npcs) {
-    const dx = player.x - npc.x;
-    const dy = player.y - npc.y;
-
-    if (Math.sqrt(dx * dx + dy * dy) < 40) {
-      game.canInteract = true;
-      game.nearbyNPC = npc;
-    }
-  }
-
-  if (game.canInteract && keys["e"]) {
-    console.log("Interact with NPC!");
-  }
-
-  if (game.mission === "find_holiday") {
-    const dx = player.x - holiday.x;
-    const dy = player.y - holiday.y;
-
-    if (Math.sqrt(dx * dx + dy * dy) < 30) {
-      game.missionComplete = true;
-      console.log("MISSION COMPLETE: Found Holiday!");
-    }
-  }
 }
 
 // =====================
@@ -341,7 +288,6 @@ function loop() {
   updateStitch();
   updateAnimation();
   updateCamera();
-  checkInteraction();
 
   drawBackground();
   drawMap();
@@ -351,3 +297,8 @@ function loop() {
 
   requestAnimationFrame(loop);
 }
+
+// =====================
+// START
+// =====================
+loop();
