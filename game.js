@@ -225,17 +225,19 @@ function drawSprite(img, obj) {
 function drawBackground() {
   if (!bgReady) return;
 
-  const parallax = 0.15;
+  const scaleX = canvas.width / bgImg.width;
+  const scaleY = canvas.height / bgImg.height;
 
-  ctx.drawImage(
-    bgImg,
-    -camera.x * parallax,
-    -camera.y * parallax,
-    canvas.width,
-    canvas.height
-  );
+  const scale = Math.min(scaleX, scaleY);
+
+  const w = bgImg.width * scale;
+  const h = bgImg.height * scale;
+
+  const x = (canvas.width - w) / 2;
+  const y = (canvas.height - h) / 2;
+
+  ctx.drawImage(bgImg, x, y, w, h);
 }
-
 // =====================
 // MAP
 // =====================
