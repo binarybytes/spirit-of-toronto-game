@@ -230,11 +230,15 @@ function drawBackground() {
 
   if (!bgReady) return;
 
-  ctx.drawImage(
-    bgImg,
-    (canvas.width - bgImg.width) / 2,
-    (canvas.height - bgImg.height) / 2
-  );
+  const scale = 4; // 👈 key fix: make skyline actually visible
+
+  const w = bgImg.width * scale;
+  const h = bgImg.height * scale;
+
+  const x = (canvas.width - w) / 2 - camera.x * 0.1;
+  const y = (canvas.height - h) / 2 - camera.y * 0.1;
+
+  ctx.drawImage(bgImg, x, y, w, h);
 }
 
 // =====================
