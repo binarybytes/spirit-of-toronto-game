@@ -15,7 +15,9 @@ let loaded = false;
 const player = {
   x: 300,
   y: 300,
-  speed: 4
+  speed: 4,
+  moving: false,
+  dir: 0 // default = down
 };
 
 // --------------------
@@ -32,7 +34,7 @@ document.addEventListener("keyup", (e) => {
 });
 
 // --------------------
-// SPRITE SHEET CONFIG (4x5)
+// SPRITE SHEET CONFIG
 // --------------------
 const COLS = 4;
 const ROWS = 5;
@@ -43,36 +45,54 @@ let FRAME_H = 0;
 // animation
 let frame = 0;
 let tick = 0;
-const MAX_FRAMES = 4; // adjust if your animation uses more frames
+const MAX_FRAMES = 4;
 
 // --------------------
-// WHEN IMAGE LOADS
+// LOAD
 // --------------------
 spiritImg.onload = () => {
-  console.log("Sprite loaded");
-
   FRAME_W = spiritImg.width / COLS;
   FRAME_H = spiritImg.height / ROWS;
 
   loaded = true;
-
   loop();
 };
 
 // --------------------
-// UPDATE
+// UPDATE MOVEMENT + DIRECTION
 // --------------------
 function update() {
-  if (keys["ArrowUp"]) player.y -= player.speed;
-  if (keys["ArrowDown"]) player.y += player.speed;
-  if (keys["ArrowLeft"]) player.x -= player.speed;
-  if (keys["ArrowRight"]) player.x += player.speed;
+  player.moving = false;
+
+  // priority-based movement (prevents diagonal direction flicker)
+  if (keys["ArrowUp"]) {
+    player.y -= player.speed;
+    player.dir = 1; // UP
+    player.moving = true;
+  } else if (keys["ArrowDown"]) {
+    player.y += player.speed;
+    player.dir = 0; // DOWN
+    player.moving = true;
+  } else if (keys["ArrowLeft"]) {
+    player.x -= player.speed;
+    player.dir = 2; // LEFT
+    player.moving = true;
+  } else if (keys["ArrowRight"]) {
+    player.x += player.speed;
+    player.dir = 3; // RIGHT
+    player.moving = true;
+  }
 }
 
 // --------------------
-// ANIMATION UPDATE
+// ANIMATION
 // --------------------
 function updateAnimation() {
+  if (!player.moving) {
+    frame = 0; // idle frame column reset
+    return;
+  }
+
   tick++;
 
   if (tick % 10 === 0) {
@@ -81,13 +101,12 @@ function updateAnimation() {
 }
 
 // --------------------
-// DRAW BACKGROUND
+// BACKGROUND
 // --------------------
 function drawBackground() {
   ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // grid for debugging movement
   ctx.strokeStyle = "#333";
 
   for (let x = 0; x < canvas.width; x += 40) {
@@ -106,7 +125,7 @@ function drawBackground() {
 }
 
 // --------------------
-// DRAW PLAYER (SLICED SPRITE SHEET)
+// DRAW PLAYER
 // --------------------
 function drawPlayer() {
   if (!loaded) {
@@ -115,8 +134,11 @@ function drawPlayer() {
     return;
   }
 
-  const col = frame % COLS;
-  const row = Math.floor(frame / COLS); // assumes animation is row 0
+  const col = frame;
+
+  // MAP YOUR SHEET ORDER:
+  // down, up, left, right, idle
+  const row = player.moving ? player.dir : 4;
 
   ctx.drawImage(
     spiritImg,
