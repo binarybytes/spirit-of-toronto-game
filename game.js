@@ -7,16 +7,17 @@ const ctx = canvas.getContext("2d");
 const spiritImg = new Image();
 spiritImg.src = "assets/spirit.png";
 
-let loaded = false;
+const holidayImg = new Image();
+holidayImg.src = "assets/holiday.png";
+
+let loadedSpirit = false;
+let loadedHoliday = false;
 
 // --------------------
 // WORLD / TILE SYSTEM
 // --------------------
 const TILE_SIZE = 40;
 
-// simple map:
-// 0 = ground (walkable)
-// 1 = building (collision)
 const map = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -41,14 +42,23 @@ const world = {
 const camera = { x: 0, y: 0 };
 
 // --------------------
-// PLAYER
+// PLAYER (SPIRIT)
 // --------------------
 const player = {
-  x: 100,
-  y: 100,
+  x: 120,
+  y: 120,
   speed: 4,
   moving: false,
   dir: 0
+};
+
+// --------------------
+// HOLIDAY NPC
+// --------------------
+const holiday = {
+  x: 300,
+  y: 300,
+  speed: 2
 };
 
 // --------------------
@@ -59,7 +69,7 @@ document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
 // --------------------
-// SPRITE SHEET CONFIG (4x5)
+// SPRITE CONFIG
 // --------------------
 const COLS = 4;
 const ROWS = 5;
@@ -72,7 +82,28 @@ let tick = 0;
 const MAX_FRAMES = 4;
 
 // --------------------
-// COLLISION CHECK
+// LOAD SPRITES
+// --------------------
+spiritImg.onload = () => {
+  loadedSpirit = true;
+  FRAME_W = spiritImg.width / COLS;
+  FRAME_H = spiritImg.height / ROWS;
+  maybeStart();
+};
+
+holidayImg.onload = () => {
+  loadedHoliday = true;
+  maybeStart();
+};
+
+function maybeStart() {
+  if (loadedSpirit && loadedHoliday) {
+    loop();
+  }
+}
+
+// --------------------
+// COLLISION
 // --------------------
 function isBlocked(x, y) {
   const col = Math.floor(x / TILE_SIZE);
@@ -83,20 +114,9 @@ function isBlocked(x, y) {
 }
 
 // --------------------
-// LOAD
+// UPDATE PLAYER
 // --------------------
-spiritImg.onload = () => {
-  FRAME_W = spiritImg.width / COLS;
-  FRAME_H = spiritImg.height / ROWS;
-
-  loaded = true;
-  loop();
-};
-
-// --------------------
-// UPDATE (WITH COLLISION)
-// --------------------
-function update() {
+function updatePlayer() {
   player.moving = false;
 
   let newX = player.x;
@@ -120,9 +140,23 @@ function update() {
     player.moving = true;
   }
 
-  // collision check
   if (!isBlocked(newX, player.y)) player.x = newX;
   if (!isBlocked(player.x, newY)) player.y = newY;
+}
+
+// --------------------
+// HOLIDAY AI (FOLLOW PLAYER)
+// --------------------
+function updateHoliday() {
+  const dx = player.x - holiday.x;
+  const dy = player.y - holiday.y;
+
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist > 2) {
+    holiday.x += (dx / dist) * holiday.speed;
+    holiday.y += (dy / dist) * holiday.speed;
+  }
 }
 
 // --------------------
@@ -152,7 +186,7 @@ function updateAnimation() {
 }
 
 // --------------------
-// DRAW TILE MAP
+// DRAW MAP
 // --------------------
 function drawMap() {
   for (let r = 0; r < map.length; r++) {
@@ -162,12 +196,7 @@ function drawMap() {
       const x = c * TILE_SIZE - camera.x;
       const y = r * TILE_SIZE - camera.y;
 
-      if (tile === 1) {
-        ctx.fillStyle = "#444"; // building
-      } else {
-        ctx.fillStyle = "#1a1a1a"; // ground
-      }
-
+      ctx.fillStyle = tile === 1 ? "#444" : "#1a1a1a";
       ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
     }
   }
@@ -177,8 +206,6 @@ function drawMap() {
 // DRAW PLAYER
 // --------------------
 function drawPlayer() {
-  if (!loaded) return;
-
   const col = frame;
   const row = player.moving ? player.dir : 4;
 
@@ -196,16 +223,31 @@ function drawPlayer() {
 }
 
 // --------------------
+// DRAW HOLIDAY
+// --------------------
+function drawHoliday() {
+  ctx.drawImage(
+    holidayImg,
+    holiday.x - camera.x,
+    holiday.y - camera.y,
+    40,
+    40
+  );
+}
+
+// --------------------
 // LOOP
 // --------------------
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  update();
+  updatePlayer();
+  updateHoliday();
   updateAnimation();
   updateCamera();
 
   drawMap();
+  drawHoliday();
   drawPlayer();
 
   requestAnimationFrame(loop);
