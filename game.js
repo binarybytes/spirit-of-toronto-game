@@ -225,14 +225,15 @@ function drawSprite(img, obj) {
 function drawBackground() {
   if (!bgReady) return;
 
-  const scale = 6;
-  const w = bgImg.width * scale;
-  const h = bgImg.height * scale;
+  const parallax = 0.15;
 
-  const x = (world.width - w) / 2 - camera.x * 0.1;
-  const y = (world.height - h) / 2 - camera.y * 0.1;
-
-  ctx.drawImage(bgImg, x, y, w, h);
+  ctx.drawImage(
+    bgImg,
+    -camera.x * parallax,
+    -camera.y * parallax,
+    canvas.width,
+    canvas.height
+  );
 }
 
 // =====================
