@@ -25,14 +25,7 @@ const stitchImg = new Image();
 stitchImg.src = "assets/stitch.png";
 
 const trashImg = new Image();
-trashImg.src = "assets/trash.png"; // sprite sheet (4x4)
-
-// =====================
-// LOAD FLAGS
-// =====================
-let bgReady = false;
-
-bgImg.onload = () => bgReady = true;
+trashImg.src = "assets/trash.png"; // 4x4 sprite sheet
 
 // =====================
 // WORLD
@@ -71,19 +64,17 @@ document.addEventListener("keydown", (e) => {
   keys[e.key] = true;
 
   if (e.code === "Space") {
-    cleanTrash();
+    startClean();
   }
 });
 
 document.addEventListener("keyup", (e) => {
   keys[e.key] = false;
-});
 
-// =====================
-// SPRITE SETTINGS
-// =====================
-const COLS = 4;
-const ROWS = 5;
+  if (e.code === "Space") {
+    stopClean();
+  }
+});
 
 // =====================
 // PLAYER
@@ -93,9 +84,7 @@ const player = {
   y: 120,
   speed: 4,
   moving: false,
-  dir: 0,
-  frame: 0,
-  tick: 0
+  dir: 0
 };
 
 // =====================
@@ -116,17 +105,13 @@ const trash = [
 
 let score = 0;
 
-// =====================
-// COLLISION
-// =====================
-function blocked(x, y) {
-  const c = Math.floor(x / TILE_SIZE);
-  const r = Math.floor(y / TILE_SIZE);
-  return !map[r] || map[r][c] === 1;
-}
+// CLEAN SYSTEM
+let cleaning = false;
+let cleanProgress = 0;
+let targetTrash = null;
 
 // =====================
-// PLAYER UPDATE
+// UPDATE PLAYER
 // =====================
 function updatePlayer() {
   let nx = player.x;
@@ -152,12 +137,12 @@ function updatePlayer() {
     player.moving = true;
   }
 
-  if (!blocked(nx, player.y)) player.x = nx;
-  if (!blocked(player.x, ny)) player.y = ny;
+  player.x = nx;
+  player.y = ny;
 }
 
 // =====================
-// COMPANION FOLLOW
+// FOLLOWERS
 // =====================
 function updateFollowers() {
   const follow = (obj, speed) => {
@@ -201,26 +186,54 @@ function updateTrash() {
 }
 
 // =====================
-// CLEAN SYSTEM (SPACE BAR)
+// CLEAN START
 // =====================
-function cleanTrash() {
-  trash.forEach(t => {
-    if (t.cleaned) return;
+function startClean() {
+  if (cleaning) return;
 
-    const dist = Math.hypot(player.x - t.x, player.y - t.y);
-
-    if (dist < 45) {
-      t.cleaned = true;
-      score++;
-    }
+  targetTrash = trash.find(t => {
+    if (t.cleaned) return false;
+    return Math.hypot(player.x - t.x, player.y - t.y) < 50;
   });
+
+  if (targetTrash) {
+    cleaning = true;
+    cleanProgress = 0;
+  }
 }
 
 // =====================
-// DRAW BACKGROUND
+// CLEAN STOP
+// =====================
+function stopClean() {
+  cleaning = false;
+  cleanProgress = 0;
+  targetTrash = null;
+}
+
+// =====================
+// CLEAN UPDATE
+// =====================
+function updateClean() {
+  if (cleaning && targetTrash) {
+    cleanProgress += 2;
+
+    if (cleanProgress >= 100) {
+      targetTrash.cleaned = true;
+      score++;
+
+      cleaning = false;
+      cleanProgress = 0;
+      targetTrash = null;
+    }
+  }
+}
+
+// =====================
+// BACKGROUND
 // =====================
 function drawBackground() {
-  if (!bgReady) return;
+  if (!bgImg.complete) return;
 
   ctx.drawImage(
     bgImg,
@@ -232,7 +245,7 @@ function drawBackground() {
 }
 
 // =====================
-// DRAW MAP
+// MAP
 // =====================
 function drawMap() {
   for (let r = 0; r < map.length; r++) {
@@ -252,7 +265,7 @@ function drawMap() {
 }
 
 // =====================
-// DRAW SPRITE SHEET (TRASH)
+// TRASH DRAW (SAFE + VISIBLE)
 // =====================
 function drawTrash() {
   if (!trashImg.complete || trashImg.naturalWidth === 0) return;
@@ -266,8 +279,14 @@ function drawTrash() {
   trash.forEach(t => {
     if (t.cleaned) return;
 
-    const fx = (t.frame % cols) * fw;
-    const fy = Math.floor(t.frame / cols) * fh;
+    const frame = t.frame % 16;
+
+    const fx = (frame % cols) * fw;
+    const fy = Math.floor(frame / cols) * fh;
+
+    // DEBUG BLUE BLOCK (ensures visibility)
+    ctx.fillStyle = "rgba(0,0,255,0.3)";
+    ctx.fillRect(t.x - camera.x, t.y - camera.y, 40, 40);
 
     ctx.drawImage(
       trashImg,
@@ -281,12 +300,38 @@ function drawTrash() {
 }
 
 // =====================
-// DRAW PLAYER + NPCS
+// SIMPLE DRAW
 // =====================
 function drawSimple(img, x, y) {
   if (!img.complete) return;
 
   ctx.drawImage(img, x - camera.x, y - camera.y, 48, 48);
+}
+
+// =====================
+// RAINBOW CLEAN BAR
+// =====================
+function drawCleanBar() {
+  if (!cleaning) return;
+
+  const x = 250;
+  const y = 20;
+  const w = 300;
+  const h = 20;
+
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(x, y, w, h);
+
+  const grad = ctx.createLinearGradient(x, y, x + w, y);
+  grad.addColorStop(0, "red");
+  grad.addColorStop(0.2, "orange");
+  grad.addColorStop(0.4, "yellow");
+  grad.addColorStop(0.6, "green");
+  grad.addColorStop(0.8, "blue");
+  grad.addColorStop(1, "violet");
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, (cleanProgress / 100) * w, h);
 }
 
 // =====================
@@ -298,6 +343,7 @@ function loop() {
   updatePlayer();
   updateFollowers();
   updateTrash();
+  updateClean();
   updateCamera();
 
   drawBackground();
@@ -309,9 +355,11 @@ function loop() {
   drawSimple(holidayImg, holiday.x, holiday.y);
   drawSimple(spiritImg, player.x, player.y);
 
+  drawCleanBar();
+
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
-  ctx.fillText("Score: " + score, 20, 40);
+  ctx.fillText("Score: " + score, 20, 50);
 
   requestAnimationFrame(loop);
 }
