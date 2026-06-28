@@ -53,7 +53,7 @@ const world = {
 const camera = { x: 0, y: 0 };
 
 // =====================
-// PLAYER (SPIRIT SPRITE SHEET)
+// PLAYER (SPIRIT)
 // =====================
 const player = {
   x: 120,
@@ -64,25 +64,32 @@ const player = {
 };
 
 // =====================
-// HOLIDAY (SPRITE SHEET)
+// HOLIDAY (SPRITE CONFIG — FIXED)
+// IMPORTANT: YOU MUST SET THIS CORRECTLY
 // =====================
 const holiday = {
   x: 300,
   y: 300,
+
   frame: 0,
   tick: 0,
 
-  // IMPORTANT: assume 4 columns, 5 rows like spirit OR adjust if needed
   cols: 4,
-  rows: 5
+  rows: 1, // 👈 FIX: assume horizontal strip (MOST COMMON CAUSE OF YOUR ISSUE)
 };
 
 // =====================
-// STITCH (STATIC)
+// STITCH (CONFIGURABLE)
 // =====================
+// If stitch is NOT a sprite sheet → keep frames = 1
 const stitch = {
   x: 500,
-  y: 200
+  y: 200,
+
+  cols: 1,
+  rows: 1,
+  frame: 0,
+  tick: 0
 };
 
 // =====================
@@ -93,7 +100,7 @@ document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
 // =====================
-// SPRITE CONFIG (SPIRIT)
+// SPRITE CONFIG (SPIRIT ONLY)
 // =====================
 const COLS = 4;
 const ROWS = 5;
@@ -106,7 +113,7 @@ let tick = 0;
 const MAX_FRAMES = 4;
 
 // =====================
-// LOAD HANDLERS
+// LOAD
 // =====================
 bgImg.onload = () => bgReady = true;
 
@@ -134,7 +141,7 @@ function blocked(x, y) {
 }
 
 // =====================
-// PLAYER UPDATE
+// PLAYER
 // =====================
 function updatePlayer() {
   player.moving = false;
@@ -165,7 +172,7 @@ function updatePlayer() {
 }
 
 // =====================
-// HOLIDAY FOLLOW + ANIMATION
+// HOLIDAY (FIXED SPRITE LOGIC)
 // =====================
 function updateHoliday() {
   const dx = player.x - holiday.x;
@@ -178,9 +185,16 @@ function updateHoliday() {
   }
 
   holiday.tick++;
-  if (holiday.tick % 10 === 0) {
+  if (holiday.tick % 12 === 0) {
     holiday.frame = (holiday.frame + 1) % holiday.cols;
   }
+}
+
+// =====================
+// STITCH (STATIC + SAFE)
+// =====================
+function updateStitch() {
+  stitch.frame = 0; // no animation unless you later define it
 }
 
 // =====================
@@ -210,13 +224,17 @@ function updateAnimation() {
 }
 
 // =====================
-// BACKGROUND (FIXED FOR SMALL IMAGE)
+// BACKGROUND (FIXED — NEVER BLACK)
 // =====================
 function drawBackground() {
-  if (!bgReady) return;
+  if (!bgReady) {
+    ctx.fillStyle = "#0b0b0b";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
 
-  const x = (canvas.width / 2) - (bgImg.width / 2) - camera.x * 0.1;
-  const y = (canvas.height / 2) - (bgImg.height / 2) - camera.y * 0.1;
+  const x = (canvas.width / 2) - (bgImg.width / 2) - camera.x * 0.05;
+  const y = (canvas.height / 2) - (bgImg.height / 2) - camera.y * 0.05;
 
   ctx.drawImage(bgImg, x, y);
 }
@@ -228,7 +246,6 @@ function drawMap() {
   for (let r = 0; r < map.length; r++) {
     for (let c = 0; c < map[r].length; c++) {
       ctx.fillStyle = map[r][c] === 1 ? "#444" : "#1a1a1a";
-
       ctx.fillRect(
         c * TILE_SIZE - camera.x,
         r * TILE_SIZE - camera.y,
@@ -240,18 +257,41 @@ function drawMap() {
 }
 
 // =====================
-// PLAYER DRAW
+// GENERIC SPRITE RENDERER
+// =====================
+function drawSprite(img, obj, cols, rows, scale = 48) {
+  const fw = img.width / cols;
+  const fh = img.height / rows;
+
+  ctx.drawImage(
+    img,
+    obj.frame * fw,
+    0,
+    fw,
+    fh,
+    obj.x - camera.x,
+    obj.y - camera.y,
+    scale,
+    scale
+  );
+}
+
+// =====================
+// DRAW PLAYER
 // =====================
 function drawPlayer() {
   const col = frame;
   const row = player.moving ? player.dir : 4;
 
+  const fw = spiritImg.width / COLS;
+  const fh = spiritImg.height / ROWS;
+
   ctx.drawImage(
     spiritImg,
-    col * SW,
-    row * SH,
-    SW,
-    SH,
+    col * fw,
+    row * fh,
+    fw,
+    fh,
     player.x - camera.x,
     player.y - camera.y,
     48,
@@ -260,32 +300,18 @@ function drawPlayer() {
 }
 
 // =====================
-// HOLIDAY DRAW (SPRITE SHEET FIXED)
+// DRAW HOLIDAY
 // =====================
 function drawHoliday() {
-  const fw = holidayImg.width / holiday.cols;
-  const fh = holidayImg.height / holiday.rows;
-
-  const col = holiday.frame;
-  const row = 0;
-
-  ctx.drawImage(
-    holidayImg,
-    col * fw,
-    row * fh,
-    fw,
-    fh,
-    holiday.x - camera.x,
-    holiday.y - camera.y,
-    48,
-    48
-  );
+  drawSprite(holidayImg, holiday, holiday.cols, holiday.rows, 48);
 }
 
 // =====================
-// STITCH DRAW
+// DRAW STITCH
 // =====================
 function drawStitch() {
+  if (!stitchReady) return;
+
   ctx.drawImage(
     stitchImg,
     stitch.x - camera.x,
@@ -303,6 +329,7 @@ function loop() {
 
   updatePlayer();
   updateHoliday();
+  updateStitch();
   updateAnimation();
   updateCamera();
 
