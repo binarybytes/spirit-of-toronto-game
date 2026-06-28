@@ -2,7 +2,7 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // --------------------
-// LOAD SPRITE SHEET
+// SPRITE SHEET
 // --------------------
 const spiritImg = new Image();
 spiritImg.src = "assets/spirit.png";
@@ -10,47 +10,56 @@ spiritImg.src = "assets/spirit.png";
 let loaded = false;
 
 // --------------------
-// WORLD SIZE (NEW)
+// WORLD / TILE SYSTEM
 // --------------------
+const TILE_SIZE = 40;
+
+// simple map:
+// 0 = ground (walkable)
+// 1 = building (collision)
+const map = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
 const world = {
-  width: 2000,
-  height: 2000
+  width: map[0].length * TILE_SIZE,
+  height: map.length * TILE_SIZE
 };
 
 // --------------------
-// CAMERA (NEW)
+// CAMERA
 // --------------------
-const camera = {
-  x: 0,
-  y: 0
-};
+const camera = { x: 0, y: 0 };
 
 // --------------------
 // PLAYER
 // --------------------
 const player = {
-  x: 300,
-  y: 300,
+  x: 100,
+  y: 100,
   speed: 4,
   moving: false,
-  dir: 0 // 0 down, 1 up, 2 left, 3 right
+  dir: 0
 };
 
 // --------------------
 // INPUT
 // --------------------
 const keys = {};
-
-document.addEventListener("keydown", (e) => {
-  keys[e.key] = true;
-});
-
-document.addEventListener("keyup", (e) => {
-  keys[e.key] = false;
-});
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
 
 // --------------------
-// SPRITE SHEET CONFIG
+// SPRITE SHEET CONFIG (4x5)
 // --------------------
 const COLS = 4;
 const ROWS = 5;
@@ -58,10 +67,20 @@ const ROWS = 5;
 let FRAME_W = 0;
 let FRAME_H = 0;
 
-// animation
 let frame = 0;
 let tick = 0;
 const MAX_FRAMES = 4;
+
+// --------------------
+// COLLISION CHECK
+// --------------------
+function isBlocked(x, y) {
+  const col = Math.floor(x / TILE_SIZE);
+  const row = Math.floor(y / TILE_SIZE);
+
+  if (!map[row] || map[row][col] === undefined) return true;
+  return map[row][col] === 1;
+}
 
 // --------------------
 // LOAD
@@ -75,42 +94,44 @@ spiritImg.onload = () => {
 };
 
 // --------------------
-// UPDATE PLAYER
+// UPDATE (WITH COLLISION)
 // --------------------
 function update() {
   player.moving = false;
 
+  let newX = player.x;
+  let newY = player.y;
+
   if (keys["ArrowUp"]) {
-    player.y -= player.speed;
+    newY -= player.speed;
     player.dir = 1;
     player.moving = true;
   } else if (keys["ArrowDown"]) {
-    player.y += player.speed;
+    newY += player.speed;
     player.dir = 0;
     player.moving = true;
   } else if (keys["ArrowLeft"]) {
-    player.x -= player.speed;
+    newX -= player.speed;
     player.dir = 2;
     player.moving = true;
   } else if (keys["ArrowRight"]) {
-    player.x += player.speed;
+    newX += player.speed;
     player.dir = 3;
     player.moving = true;
   }
 
-  // keep player inside world bounds
-  player.x = Math.max(0, Math.min(world.width, player.x));
-  player.y = Math.max(0, Math.min(world.height, player.y));
+  // collision check
+  if (!isBlocked(newX, player.y)) player.x = newX;
+  if (!isBlocked(player.x, newY)) player.y = newY;
 }
 
 // --------------------
-// CAMERA FOLLOW (NEW)
+// CAMERA
 // --------------------
 function updateCamera() {
   camera.x = player.x - canvas.width / 2;
   camera.y = player.y - canvas.height / 2;
 
-  // clamp camera to world bounds
   camera.x = Math.max(0, Math.min(world.width - canvas.width, camera.x));
   camera.y = Math.max(0, Math.min(world.height - canvas.height, camera.y));
 }
@@ -125,64 +146,50 @@ function updateAnimation() {
   }
 
   tick++;
-
   if (tick % 10 === 0) {
     frame = (frame + 1) % MAX_FRAMES;
   }
 }
 
 // --------------------
-// BACKGROUND (WORLD SPACE)
+// DRAW TILE MAP
 // --------------------
-function drawBackground() {
-  ctx.fillStyle = "#1a1a1a";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+function drawMap() {
+  for (let r = 0; r < map.length; r++) {
+    for (let c = 0; c < map[r].length; c++) {
+      const tile = map[r][c];
 
-  // grid
-  ctx.strokeStyle = "#333";
+      const x = c * TILE_SIZE - camera.x;
+      const y = r * TILE_SIZE - camera.y;
 
-  const startX = Math.floor(camera.x / 40) * 40;
-  const startY = Math.floor(camera.y / 40) * 40;
+      if (tile === 1) {
+        ctx.fillStyle = "#444"; // building
+      } else {
+        ctx.fillStyle = "#1a1a1a"; // ground
+      }
 
-  for (let x = startX; x < camera.x + canvas.width; x += 40) {
-    ctx.beginPath();
-    ctx.moveTo(x - camera.x, 0);
-    ctx.lineTo(x - camera.x, canvas.height);
-    ctx.stroke();
-  }
-
-  for (let y = startY; y < camera.y + canvas.height; y += 40) {
-    ctx.beginPath();
-    ctx.moveTo(0, y - camera.y);
-    ctx.lineTo(canvas.width, y - camera.y);
-    ctx.stroke();
+      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    }
   }
 }
 
 // --------------------
-// DRAW PLAYER (WORLD → SCREEN SPACE)
+// DRAW PLAYER
 // --------------------
 function drawPlayer() {
-  if (!loaded) {
-    ctx.fillStyle = "red";
-    ctx.fillRect(player.x - camera.x, player.y - camera.y, 40, 40);
-    return;
-  }
+  if (!loaded) return;
 
   const col = frame;
   const row = player.moving ? player.dir : 4;
 
   ctx.drawImage(
     spiritImg,
-
     col * FRAME_W,
     row * FRAME_H,
     FRAME_W,
     FRAME_H,
-
     player.x - camera.x,
     player.y - camera.y,
-
     48,
     48
   );
@@ -198,7 +205,7 @@ function loop() {
   updateAnimation();
   updateCamera();
 
-  drawBackground();
+  drawMap();
   drawPlayer();
 
   requestAnimationFrame(loop);
