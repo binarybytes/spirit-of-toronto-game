@@ -27,25 +27,16 @@ function load(src) {
 }
 
 // =====================================================
-// SPRITE CONFIG
+// CONFIG
 // =====================================================
 const SPRITE_COLS = 4;
 const SPRITE_ROWS = 5;
 
-// TRASH ATLAS (YOUR REAL DATA)
 const TRASH_COLS = 14;
 const TRASH_ROWS = 7;
 const TRASH_FRAMES = TRASH_COLS * TRASH_ROWS;
 
-// =====================================================
-// WORLD / CAMERA
-// =====================================================
-const world = {
-  width: 2000,
-  height: 1200
-};
-
-const camera = { x: 0, y: 0 };
+const MAX_BEAM = 60;
 
 // =====================================================
 // INPUT
@@ -61,6 +52,16 @@ window.addEventListener("keyup", (e) => {
   keys[e.code] = false;
   if (e.code === "Space") beamEnd();
 });
+
+// =====================================================
+// WORLD
+// =====================================================
+const world = {
+  width: 2000,
+  height: 1200
+};
+
+const camera = { x: 0, y: 0 };
 
 // =====================================================
 // ENTITIES
@@ -105,7 +106,8 @@ function makeFollower(x, y, speed) {
     speed,
     dir: 0,
     frame: 0,
-    tick: 0
+    tick: 0,
+    moving: false
   };
 }
 
@@ -113,13 +115,24 @@ function makeTrash(x, y) {
   return {
     x,
     y,
-    frame: Math.floor(Math.random() * TRASH_FRAMES), // STATIC ONCE
+    frame: Math.floor(Math.random() * TRASH_FRAMES),
     cleaned: false
   };
 }
 
 // =====================================================
-// PLAYER
+// INPUT HELPERS
+// =====================================================
+function getDirection(dx, dy) {
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? 3 : 2;
+  } else {
+    return dy > 0 ? 0 : 1;
+  }
+}
+
+// =====================================================
+// PLAYER UPDATE
 // =====================================================
 function updatePlayer() {
   player.moving = false;
@@ -141,19 +154,38 @@ function updatePlayer() {
     player.dir = 3;
     player.moving = true;
   }
+
+  if (player.moving) {
+    player.tick++;
+    if (player.tick % 10 === 0) {
+      player.frame = (player.frame + 1) % SPRITE_COLS;
+    }
+  } else {
+    player.frame = 0;
+  }
 }
 
 // =====================================================
-// FOLLOW AI
+// FOLLOWERS
 // =====================================================
 function updateFollower(f) {
   const dx = player.x - f.x;
   const dy = player.y - f.y;
-  const d = Math.hypot(dx, dy);
+  const dist = Math.hypot(dx, dy);
 
-  if (d > 2) {
-    f.x += (dx / d) * f.speed;
-    f.y += (dy / d) * f.speed;
+  if (dist > 2) {
+    f.x += (dx / dist) * f.speed;
+    f.y += (dy / dist) * f.speed;
+    f.moving = true;
+    f.dir = getDirection(dx, dy);
+
+    f.tick++;
+    if (f.tick % 10 === 0) {
+      f.frame = (f.frame + 1) % SPRITE_COLS;
+    }
+  } else {
+    f.moving = false;
+    f.frame = 0;
   }
 }
 
@@ -170,10 +202,10 @@ function clamp(v, min, max) {
 }
 
 // =====================================================
-// TRASH (NO ANIMATION — FIXED ROOT CAUSE)
+// TRASH (STATIC)
 // =====================================================
 function updateTrash() {
-  // intentionally empty → prevents “cycling illusion”
+  // intentionally empty
 }
 
 // =====================================================
@@ -186,7 +218,7 @@ function beamStart() {
 function beamEnd() {
   beamActive = false;
 
-  if (beamPower > 25) {
+  if (beamPower >= MAX_BEAM) {
     burstClean();
   }
 
@@ -195,7 +227,9 @@ function beamEnd() {
 
 function updateBeam() {
   if (beamActive) beamPower += 2;
-  else beamPower *= 0.9;
+  else beamPower *= 0.85;
+
+  beamPower = Math.max(0, Math.min(MAX_BEAM, beamPower));
 }
 
 function burstClean() {
@@ -214,7 +248,7 @@ function burstClean() {
 }
 
 // =====================================================
-// SPRITE RENDER (PLAYER / NPCs)
+// RENDER: SPRITES
 // =====================================================
 function drawSprite(img, e) {
   if (!img || !img.complete || img.width === 0) return;
@@ -236,7 +270,7 @@ function drawSprite(img, e) {
 }
 
 // =====================================================
-// TRASH RENDER (CORRECT 14x7 ATLAS)
+// RENDER: TRASH (FIXED ATLAS)
 // =====================================================
 function drawTrash() {
   const img = assets.trash;
@@ -266,7 +300,7 @@ function drawTrash() {
 }
 
 // =====================================================
-// RAINBOW BEAM VISUAL
+// BEAM VISUAL
 // =====================================================
 function drawBeam() {
   if (!beamActive) return;
@@ -276,13 +310,13 @@ function drawBeam() {
 
   const r = 150;
 
-  const grad = ctx.createRadialGradient(x, y, 10, x, y, r);
-  grad.addColorStop(0, "rgba(255,0,255,0.6)");
-  grad.addColorStop(0.3, "rgba(0,255,255,0.5)");
-  grad.addColorStop(0.6, "rgba(255,255,0,0.3)");
-  grad.addColorStop(1, "rgba(0,0,0,0)");
+  const g = ctx.createRadialGradient(x, y, 10, x, y, r);
+  g.addColorStop(0, "rgba(255,0,255,0.6)");
+  g.addColorStop(0.3, "rgba(0,255,255,0.5)");
+  g.addColorStop(0.6, "rgba(255,255,0,0.3)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
 
-  ctx.fillStyle = grad;
+  ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
@@ -295,6 +329,31 @@ function drawUI() {
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Score: " + score, 20, 30);
+
+  // beam bar
+  const x = 20, y = 50, w = 200, h = 12;
+  const pct = beamPower / MAX_BEAM;
+
+  ctx.fillStyle = "rgba(255,255,255,0.2)";
+  ctx.fillRect(x, y, w, h);
+
+  const grad = ctx.createLinearGradient(x, y, x + w, y);
+  grad.addColorStop(0, "purple");
+  grad.addColorStop(0.5, "cyan");
+  grad.addColorStop(1, "yellow");
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w * pct, h);
+
+  ctx.strokeStyle = "white";
+  ctx.strokeRect(x, y, w, h);
+
+  if (pct >= 1) {
+    ctx.fillStyle = "lime";
+    ctx.fillText("READY - RELEASE SPACE", 240, 60);
+  } else if (beamActive) {
+    ctx.fillText("Charging...", 240, 60);
+  }
 }
 
 // =====================================================
