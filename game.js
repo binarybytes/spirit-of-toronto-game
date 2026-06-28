@@ -1,8 +1,10 @@
+console.log("game.js loaded");
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // =====================
-// CANVAS SIZE (must stay explicit)
+// CANVAS SIZE
 // =====================
 canvas.width = 800;
 canvas.height = 600;
@@ -34,6 +36,12 @@ bgImg.onload = () => bgReady = true;
 spiritImg.onload = () => spiritReady = true;
 holidayImg.onload = () => holidayReady = true;
 stitchImg.onload = () => stitchReady = true;
+
+// ERROR HANDLING (IMPORTANT FIX)
+bgImg.onerror = () => console.log("❌ background failed");
+spiritImg.onerror = () => console.log("❌ spirit failed");
+holidayImg.onerror = () => console.log("❌ holiday failed");
+stitchImg.onerror = () => console.log("❌ stitch failed");
 
 // =====================
 // WORLD
@@ -152,7 +160,7 @@ function updatePlayer() {
 }
 
 // =====================
-// HOLIDAY FOLLOW
+// FOLLOW SYSTEM
 // =====================
 function updateHoliday() {
   const dx = player.x - holiday.x;
@@ -163,28 +171,17 @@ function updateHoliday() {
     holiday.x += (dx / d) * 2;
     holiday.y += (dy / d) * 2;
   }
-
-  holiday.tick++;
-  if (holiday.tick % 12 === 0) {
-    holiday.frame = (holiday.frame + 1) % COLS;
-  }
-
-  holiday.dir = Math.abs(dx) > Math.abs(dy)
-    ? (dx > 0 ? 3 : 2)
-    : (dy > 0 ? 0 : 1);
 }
 
-// =====================
-// STITCH ANIMATION
-// =====================
 function updateStitch() {
-  stitch.tick++;
+  const dx = player.x - stitch.x;
+  const dy = player.y - stitch.y;
+  const d = Math.sqrt(dx * dx + dy * dy);
 
-  if (stitch.tick % 12 === 0) {
-    stitch.frame = (stitch.frame + 1) % COLS;
+  if (d > 3) {
+    stitch.x += (dx / d) * 1.5;
+    stitch.y += (dy / d) * 1.5;
   }
-
-  stitch.dir = 0;
 }
 
 // =====================
@@ -199,28 +196,36 @@ function updateCamera() {
 }
 
 // =====================
-// PLAYER ANIMATION
+// SAFE SPRITE DRAW (CRASH FIX)
 // =====================
-function updateAnimation() {
-  if (!player.moving) {
-    player.frame = 0;
-    return;
-  }
+function drawSprite(img, obj) {
+  if (!img || !img.complete || img.naturalWidth === 0) return;
 
-  player.tick++;
-  if (player.tick % 10 === 0) {
-    player.frame = (player.frame + 1) % COLS;
-  }
+  const fw = img.naturalWidth / COLS;
+  const fh = img.naturalHeight / ROWS;
+
+  if (!fw || !fh) return;
+
+  ctx.drawImage(
+    img,
+    obj.frame * fw,
+    obj.dir * fh,
+    fw,
+    fh,
+    obj.x - camera.x,
+    obj.y - camera.y,
+    48,
+    48
+  );
 }
 
 // =====================
-// BACKGROUND (NOW PROPERLY VISIBLE LAYER)
+// BACKGROUND
 // =====================
 function drawBackground() {
   if (!bgReady) return;
 
   const scale = 6;
-
   const w = bgImg.width * scale;
   const h = bgImg.height * scale;
 
@@ -231,7 +236,7 @@ function drawBackground() {
 }
 
 // =====================
-// MAP (FIXED TRANSPARENCY ISSUE)
+// MAP
 // =====================
 function drawMap() {
   for (let r = 0; r < map.length; r++) {
@@ -251,25 +256,8 @@ function drawMap() {
 }
 
 // =====================
-// SPRITES
+// DRAW ENTITIES
 // =====================
-function drawSprite(img, obj) {
-  const fw = img.width / COLS;
-  const fh = img.height / ROWS;
-
-  ctx.drawImage(
-    img,
-    obj.frame * fw,
-    obj.dir * fh,
-    fw,
-    fh,
-    obj.x - camera.x,
-    obj.y - camera.y,
-    48,
-    48
-  );
-}
-
 function drawPlayer() {
   drawSprite(spiritImg, player);
 }
@@ -291,11 +279,11 @@ function loop() {
   updatePlayer();
   updateHoliday();
   updateStitch();
-  updateAnimation();
   updateCamera();
 
-  drawBackground();   // now visible layer
-  drawMap();          // semi-transparent
+  drawBackground();
+  drawMap();
+
   drawStitch();
   drawHoliday();
   drawPlayer();
