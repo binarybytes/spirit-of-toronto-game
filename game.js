@@ -1,7 +1,7 @@
 "use strict";
 
 // =====================================================
-// CANVAS INIT
+// CANVAS
 // =====================================================
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -13,30 +13,28 @@ canvas.height = 600;
 // ASSETS
 // =====================================================
 const assets = {
-  bg: new Image(),
-  spirit: new Image(),
-  holiday: new Image(),
-  stitch: new Image(),
-  trash: new Image()
+  bg: loadImage("assets/background.png"),
+  spirit: loadImage("assets/spirit.png"),
+  holiday: loadImage("assets/holiday.png"),
+  stitch: loadImage("assets/stitch.png"),
+  trash: loadImage("assets/tsprites.png")
 };
 
-assets.bg.src = "assets/background.png";
-assets.spirit.src = "assets/spirit.png";
-assets.holiday.src = "assets/holiday.png";
-assets.stitch.src = "assets/stitch.png";
-assets.trash.src = "assets/tsprites.png";
+function loadImage(src) {
+  const img = new Image();
+  img.src = src;
+  return img;
+}
 
 // =====================================================
 // CONSTANTS
 // =====================================================
-const COLS = 4;
-const ROWS = 5;
+const SPRITE_COLS = 4;
+const SPRITE_ROWS = 5;
 
 const TRASH_COLS = 8;
 const TRASH_ROWS = 10;
 const TRASH_FRAMES = TRASH_COLS * TRASH_ROWS;
-
-const TILE = 40;
 
 // =====================================================
 // INPUT
@@ -45,20 +43,22 @@ const keys = Object.create(null);
 
 window.addEventListener("keydown", (e) => {
   keys[e.code] = true;
-  if (e.code === "Space") beginClean();
+
+  if (e.code === "Space") startBeam();
 });
 
 window.addEventListener("keyup", (e) => {
   keys[e.code] = false;
-  if (e.code === "Space") endClean();
+
+  if (e.code === "Space") endBeam();
 });
 
 // =====================================================
-// WORLD / CAMERA
+// WORLD
 // =====================================================
 const world = {
-  width: 25 * TILE,
-  height: 10 * TILE
+  width: 2000,
+  height: 1200
 };
 
 const camera = { x: 0, y: 0 };
@@ -66,31 +66,29 @@ const camera = { x: 0, y: 0 };
 // =====================================================
 // ENTITIES
 // =====================================================
-const player = makeActor(120, 120);
-const holiday = makeFollower(300, 300, 2);
-const stitch = makeFollower(500, 200, 1.5);
+const player = createActor(120, 120);
+const holiday = createFollower(320, 260, 2);
+const stitch = createFollower(520, 180, 1.6);
 
-// =====================================================
-// TRASH SYSTEM
-// =====================================================
 const trash = [
-  makeTrash(250, 250),
-  makeTrash(500, 300),
-  makeTrash(700, 450)
+  createTrash(260, 240),
+  createTrash(520, 320),
+  createTrash(740, 460),
+  createTrash(900, 300)
 ];
 
+// =====================================================
+// GAME STATE
+// =====================================================
 let score = 0;
 
-// =====================================================
-// CLEAN SYSTEM
-// =====================================================
-let cleaning = false;
-let cleanCharge = 0;
+let beamActive = false;
+let beamEnergy = 0;
 
 // =====================================================
-// FACTORIES (CLEAN STRUCTURE)
+// FACTORIES
 // =====================================================
-function makeActor(x, y) {
+function createActor(x, y) {
   return {
     x, y,
     dir: 0,
@@ -101,7 +99,7 @@ function makeActor(x, y) {
   };
 }
 
-function makeFollower(x, y, speed) {
+function createFollower(x, y, speed) {
   return {
     x, y,
     speed,
@@ -111,10 +109,10 @@ function makeFollower(x, y, speed) {
   };
 }
 
-function makeTrash(x, y) {
+function createTrash(x, y) {
   return {
     x, y,
-    frame: 0,
+    frame: Math.floor(Math.random() * TRASH_FRAMES),
     tick: 0,
     cleaned: false
   };
@@ -146,21 +144,33 @@ function updatePlayer() {
 }
 
 // =====================================================
-// UPDATE: FOLLOWERS (FIXED)
+// FOLLOW SYSTEM
 // =====================================================
-function updateFollower(obj) {
-  const dx = player.x - obj.x;
-  const dy = player.y - obj.y;
-  const dist = Math.hypot(dx, dy);
+function updateFollower(f) {
+  const dx = player.x - f.x;
+  const dy = player.y - f.y;
+  const d = Math.hypot(dx, dy);
 
-  if (dist > 2) {
-    obj.x += (dx / dist) * obj.speed;
-    obj.y += (dy / dist) * obj.speed;
+  if (d > 2) {
+    f.x += (dx / d) * f.speed;
+    f.y += (dy / d) * f.speed;
   }
 }
 
 // =====================================================
-// UPDATE: TRASH ANIMATION (FIXED FRAME LOGIC)
+// CAMERA
+// =====================================================
+function updateCamera() {
+  camera.x = clamp(player.x - canvas.width / 2, 0, world.width - canvas.width);
+  camera.y = clamp(player.y - canvas.height / 2, 0, world.height - canvas.height);
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+// =====================================================
+// TRASH ANIMATION (CONTROLLED, NOT CHAOTIC)
 // =====================================================
 function updateTrash() {
   for (const t of trash) {
@@ -168,30 +178,37 @@ function updateTrash() {
 
     t.tick++;
 
-    if (t.tick % 18 === 0) {
+    // slow subtle animation only
+    if (t.tick % 70 === 0) {
       t.frame = (t.frame + 1) % TRASH_FRAMES;
     }
   }
 }
 
 // =====================================================
-// CLEAN SYSTEM (RAINBOW BURST)
+// BEAM SYSTEM (SPACE ATTACK)
 // =====================================================
-function beginClean() {
-  cleaning = true;
+function startBeam() {
+  beamActive = true;
 }
 
-function endClean() {
-  if (cleanCharge > 40) {
-    burstClean();
+function endBeam() {
+  beamActive = false;
+
+  if (beamEnergy > 25) {
+    cleanBurst();
   }
 
-  cleaning = false;
-  cleanCharge = 0;
+  beamEnergy = 0;
 }
 
-function burstClean() {
-  const radius = 120;
+function updateBeam() {
+  if (beamActive) beamEnergy += 2;
+  else beamEnergy *= 0.9;
+}
+
+function cleanBurst() {
+  const radius = 150;
 
   for (const t of trash) {
     if (t.cleaned) continue;
@@ -200,30 +217,19 @@ function burstClean() {
 
     if (d < radius) {
       t.cleaned = true;
-      score++;
+      score += 10;
     }
   }
 }
 
 // =====================================================
-// CAMERA
-// =====================================================
-function updateCamera() {
-  camera.x = player.x - canvas.width / 2;
-  camera.y = player.y - canvas.height / 2;
-
-  camera.x = clamp(camera.x, 0, world.width - canvas.width);
-  camera.y = clamp(camera.y, 0, world.height - canvas.height);
-}
-
-// =====================================================
-// SPRITE RENDER (SAFE + ROBUST)
+// RENDER: SPRITES
 // =====================================================
 function drawSprite(img, e) {
-  if (!img || !img.complete || img.width === 0) return;
+  if (!img.complete || img.width === 0) return;
 
-  const fw = img.width / COLS;
-  const fh = img.height / ROWS;
+  const fw = img.width / SPRITE_COLS;
+  const fh = img.height / SPRITE_ROWS;
 
   ctx.drawImage(
     img,
@@ -239,12 +245,12 @@ function drawSprite(img, e) {
 }
 
 // =====================================================
-// TRASH RENDER (FIXED 8x10 GRID)
+// RENDER: TRASH (FIXED GRID)
 // =====================================================
 function drawTrash() {
   const img = assets.trash;
 
-  if (!img || !img.complete || img.width === 0) return;
+  if (!img.complete || img.width === 0) return;
 
   const fw = img.width / TRASH_COLS;
   const fh = img.height / TRASH_ROWS;
@@ -252,14 +258,12 @@ function drawTrash() {
   for (const t of trash) {
     if (t.cleaned) continue;
 
-    const f = t.frame;
-
-    const sx = (f % TRASH_COLS) * fw;
-    const sy = Math.floor(f / TRASH_COLS) * fh;
+    const fx = (t.frame % TRASH_COLS) * fw;
+    const fy = Math.floor(t.frame / TRASH_COLS) * fh;
 
     ctx.drawImage(
       img,
-      sx, sy, fw, fh,
+      fx, fy, fw, fh,
       t.x - camera.x,
       t.y - camera.y,
       48,
@@ -269,26 +273,35 @@ function drawTrash() {
 }
 
 // =====================================================
+// RAINBOW BEAM VISUAL
+// =====================================================
+function drawBeam() {
+  if (!beamActive) return;
+
+  const x = player.x - camera.x + 24;
+  const y = player.y - camera.y + 24;
+
+  const r = 150;
+
+  const g = ctx.createRadialGradient(x, y, 10, x, y, r);
+  g.addColorStop(0, "rgba(255,0,255,0.6)");
+  g.addColorStop(0.3, "rgba(0,255,255,0.5)");
+  g.addColorStop(0.6, "rgba(255,255,0,0.3)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// =====================================================
 // UI
 // =====================================================
 function drawUI() {
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Score: " + score, 20, 30);
-
-  // rainbow charge bar (simple but stable)
-  ctx.fillStyle = "rgba(255,255,255,0.2)";
-  ctx.fillRect(20, 50, 200, 10);
-
-  ctx.fillStyle = "cyan";
-  ctx.fillRect(20, 50, Math.min(200, cleanCharge * 2), 10);
-}
-
-// =====================================================
-// HELPERS
-// =====================================================
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
 }
 
 // =====================================================
@@ -300,18 +313,18 @@ function loop() {
   updatePlayer();
   updateFollower(holiday);
   updateFollower(stitch);
-
   updateTrash();
+  updateBeam();
   updateCamera();
 
-  if (cleaning) cleanCharge += 1.5;
-  else cleanCharge *= 0.9;
-
-  // RENDER ORDER (IMPORTANT)
+  // background
   ctx.drawImage(assets.bg, 0, 0, canvas.width, canvas.height);
 
+  // world
   drawTrash();
+  drawBeam();
 
+  // characters
   drawSprite(assets.stitch, stitch);
   drawSprite(assets.holiday, holiday);
   drawSprite(assets.spirit, player);
