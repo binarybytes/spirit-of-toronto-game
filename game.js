@@ -2,22 +2,23 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // --------------------
-// LOAD IMAGES
+// LOAD IMAGE
 // --------------------
-function loadImage(src) {
-  const img = new Image();
-  img.src = src;
+const spiritImg = new Image();
+spiritImg.src = "assets/spirit.png";
 
-  img.onerror = () => {
-    console.log("Missing:", src);
-  };
+let loaded = false;
 
-  return img;
-}
+// only start when image is ready
+spiritImg.onload = () => {
+  console.log("Spirit loaded");
+  loaded = true;
+  requestAnimationFrame(loop);
+};
 
-const spiritImg = loadImage("assets/spirit.png");
-const holidayImg = loadImage("assets/holiday.png");
-const bgImg = loadImage("assets/background.png");
+spiritImg.onerror = () => {
+  console.log("FAILED to load spirit.png");
+};
 
 // --------------------
 // PLAYER
@@ -29,61 +30,45 @@ const player = {
 };
 
 // --------------------
-// COMPANION (HOLIDAY)
-// --------------------
-const companion = {
-  x: 200,
-  y: 200
-};
-
-// --------------------
 // INPUT
 // --------------------
 const keys = {};
 
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+document.addEventListener("keydown", (e) => {
+  keys[e.key] = true;
+});
+
+document.addEventListener("keyup", (e) => {
+  keys[e.key] = false;
+});
 
 // --------------------
-// UPDATE
+// UPDATE LOGIC
 // --------------------
 function update() {
   if (keys["ArrowUp"]) player.y -= player.speed;
   if (keys["ArrowDown"]) player.y += player.speed;
   if (keys["ArrowLeft"]) player.x -= player.speed;
   if (keys["ArrowRight"]) player.x += player.speed;
-
-  // simple follow AI (Holiday)
-  companion.x += (player.x - companion.x) * 0.05;
-  companion.y += (player.y - companion.y) * 0.05;
 }
 
 // --------------------
-// SAFE DRAW FUNCTION
+// DRAW BACKGROUND (always visible)
 // --------------------
-function safeDraw(img, x, y, w, h, fallbackColor = "red") {
-  if (img && img.complete && img.naturalWidth > 0) {
-    ctx.drawImage(img, x, y, w, h);
-  } else {
-    ctx.fillStyle = fallbackColor;
-    ctx.fillRect(x, y, w, h);
-  }
-}
+function drawBackground() {
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-// --------------------
-// DRAW WORLD
-// --------------------
-function drawWorld() {
-  safeDraw(bgImg, 0, 0, canvas.width, canvas.height, "#222");
-
-  // grid so you always see movement
+  // grid so you can see movement
   ctx.strokeStyle = "#333";
+
   for (let x = 0; x < canvas.width; x += 40) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, canvas.height);
     ctx.stroke();
   }
+
   for (let y = 0; y < canvas.height; y += 40) {
     ctx.beginPath();
     ctx.moveTo(0, y);
@@ -93,27 +78,27 @@ function drawWorld() {
 }
 
 // --------------------
-// DRAW ENTITIES
+// DRAW PLAYER
 // --------------------
-function drawEntities() {
-  // player (Spirit)
-  safeDraw(spiritImg, player.x, player.y, 48, 48, "cyan");
-
-  // companion (Holiday)
-  safeDraw(holidayImg, companion.x, companion.y, 40, 40, "yellow");
+function drawPlayer() {
+  if (loaded) {
+    ctx.drawImage(spiritImg, player.x, player.y, 48, 48);
+  } else {
+    // fallback so you ALWAYS see something
+    ctx.fillStyle = "red";
+    ctx.fillRect(player.x, player.y, 40, 40);
+  }
 }
 
 // --------------------
-// LOOP
+// MAIN LOOP
 // --------------------
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   update();
-  drawWorld();
-  drawEntities();
+  drawBackground();
+  drawPlayer();
 
   requestAnimationFrame(loop);
 }
-
-loop();
