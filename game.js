@@ -1,9 +1,9 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// --------------------
+// =====================
 // IMAGES
-// --------------------
+// =====================
 const bgImg = new Image();
 bgImg.src = "assets/background.png";
 
@@ -16,17 +16,17 @@ holidayImg.src = "assets/holiday.png";
 const stitchImg = new Image();
 stitchImg.src = "assets/stitch.png";
 
-// --------------------
+// =====================
 // LOAD FLAGS
-// --------------------
-let bgLoaded = false;
-let spiritLoaded = false;
-let holidayLoaded = false;
-let stitchLoaded = false;
+// =====================
+let bgReady = false;
+let spiritReady = false;
+let holidayReady = false;
+let stitchReady = false;
 
-// --------------------
+// =====================
 // WORLD
-// --------------------
+// =====================
 const TILE_SIZE = 40;
 
 const map = [
@@ -47,14 +47,14 @@ const world = {
   height: map.length * TILE_SIZE
 };
 
-// --------------------
+// =====================
 // CAMERA
-// --------------------
+// =====================
 const camera = { x: 0, y: 0 };
 
-// --------------------
-// PLAYER
-// --------------------
+// =====================
+// PLAYER (SPIRIT SPRITE SHEET)
+// =====================
 const player = {
   x: 120,
   y: 120,
@@ -63,73 +63,79 @@ const player = {
   dir: 0
 };
 
-// --------------------
-// NPCs
-// --------------------
+// =====================
+// HOLIDAY (SPRITE SHEET)
+// =====================
 const holiday = {
   x: 300,
   y: 300,
   frame: 0,
-  tick: 0
+  tick: 0,
+
+  // IMPORTANT: assume 4 columns, 5 rows like spirit OR adjust if needed
+  cols: 4,
+  rows: 5
 };
 
+// =====================
+// STITCH (STATIC)
+// =====================
 const stitch = {
   x: 500,
   y: 200
 };
 
-// --------------------
+// =====================
 // INPUT
-// --------------------
+// =====================
 const keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// --------------------
-// SPRITE CONFIG (SPIRIT ONLY)
-// --------------------
+// =====================
+// SPRITE CONFIG (SPIRIT)
+// =====================
 const COLS = 4;
 const ROWS = 5;
 
-let FRAME_W = 0;
-let FRAME_H = 0;
+let SW = 0;
+let SH = 0;
 
 let frame = 0;
 let tick = 0;
 const MAX_FRAMES = 4;
 
-// --------------------
+// =====================
 // LOAD HANDLERS
-// --------------------
-bgImg.onload = () => bgLoaded = true;
+// =====================
+bgImg.onload = () => bgReady = true;
 
 spiritImg.onload = () => {
-  spiritLoaded = true;
-  FRAME_W = spiritImg.width / COLS;
-  FRAME_H = spiritImg.height / ROWS;
-  startIfReady();
+  spiritReady = true;
+  SW = spiritImg.width / COLS;
+  SH = spiritImg.height / ROWS;
+  start();
 };
 
-holidayImg.onload = () => holidayLoaded = true;
-stitchImg.onload = () => stitchLoaded = true;
+holidayImg.onload = () => holidayReady = true;
+stitchImg.onload = () => stitchReady = true;
 
-function startIfReady() {
-  if (spiritLoaded) loop();
+function start() {
+  loop();
 }
 
-// --------------------
+// =====================
 // COLLISION
-// --------------------
-function isBlocked(x, y) {
+// =====================
+function blocked(x, y) {
   const c = Math.floor(x / TILE_SIZE);
   const r = Math.floor(y / TILE_SIZE);
-
   return !map[r] || map[r][c] === 1;
 }
 
-// --------------------
+// =====================
 // PLAYER UPDATE
-// --------------------
+// =====================
 function updatePlayer() {
   player.moving = false;
 
@@ -154,14 +160,13 @@ function updatePlayer() {
     player.moving = true;
   }
 
-  if (!isBlocked(nx, player.y)) player.x = nx;
-  if (!isBlocked(player.x, ny)) player.y = ny;
+  if (!blocked(nx, player.y)) player.x = nx;
+  if (!blocked(player.x, ny)) player.y = ny;
 }
 
-// --------------------
-// HOLIDAY SPRITE SHEET FIX
-// --------------------
-// assume SAME layout as spirit (4x5)
+// =====================
+// HOLIDAY FOLLOW + ANIMATION
+// =====================
 function updateHoliday() {
   const dx = player.x - holiday.x;
   const dy = player.y - holiday.y;
@@ -173,14 +178,14 @@ function updateHoliday() {
   }
 
   holiday.tick++;
-  if (holiday.tick % 15 === 0) {
-    holiday.frame = (holiday.frame + 1) % 4;
+  if (holiday.tick % 10 === 0) {
+    holiday.frame = (holiday.frame + 1) % holiday.cols;
   }
 }
 
-// --------------------
+// =====================
 // CAMERA
-// --------------------
+// =====================
 function updateCamera() {
   camera.x = player.x - canvas.width / 2;
   camera.y = player.y - canvas.height / 2;
@@ -189,9 +194,9 @@ function updateCamera() {
   camera.y = Math.max(0, Math.min(world.height - canvas.height, camera.y));
 }
 
-// --------------------
-// ANIMATION
-// --------------------
+// =====================
+// ANIMATION (SPIRIT)
+// =====================
 function updateAnimation() {
   if (!player.moving) {
     frame = 0;
@@ -204,22 +209,26 @@ function updateAnimation() {
   }
 }
 
-// --------------------
-// BACKGROUND (FIXED)
-// --------------------
+// =====================
+// BACKGROUND (FIXED FOR SMALL IMAGE)
+// =====================
 function drawBackground() {
-  if (!bgLoaded) return;
+  if (!bgReady) return;
 
-  ctx.drawImage(bgImg, -camera.x * 0.2, -camera.y * 0.2, world.width, world.height);
+  const x = (canvas.width / 2) - (bgImg.width / 2) - camera.x * 0.1;
+  const y = (canvas.height / 2) - (bgImg.height / 2) - camera.y * 0.1;
+
+  ctx.drawImage(bgImg, x, y);
 }
 
-// --------------------
+// =====================
 // MAP
-// --------------------
+// =====================
 function drawMap() {
   for (let r = 0; r < map.length; r++) {
     for (let c = 0; c < map[r].length; c++) {
       ctx.fillStyle = map[r][c] === 1 ? "#444" : "#1a1a1a";
+
       ctx.fillRect(
         c * TILE_SIZE - camera.x,
         r * TILE_SIZE - camera.y,
@@ -230,19 +239,19 @@ function drawMap() {
   }
 }
 
-// --------------------
-// DRAW PLAYER
-// --------------------
+// =====================
+// PLAYER DRAW
+// =====================
 function drawPlayer() {
   const col = frame;
   const row = player.moving ? player.dir : 4;
 
   ctx.drawImage(
     spiritImg,
-    col * FRAME_W,
-    row * FRAME_H,
-    FRAME_W,
-    FRAME_H,
+    col * SW,
+    row * SH,
+    SW,
+    SH,
     player.x - camera.x,
     player.y - camera.y,
     48,
@@ -250,19 +259,22 @@ function drawPlayer() {
   );
 }
 
-// --------------------
-// DRAW HOLIDAY (SPRITE SHEET FIXED)
-// --------------------
+// =====================
+// HOLIDAY DRAW (SPRITE SHEET FIXED)
+// =====================
 function drawHoliday() {
-  const col = holiday.frame || 0;
+  const fw = holidayImg.width / holiday.cols;
+  const fh = holidayImg.height / holiday.rows;
+
+  const col = holiday.frame;
   const row = 0;
 
   ctx.drawImage(
     holidayImg,
-    col * FRAME_W,
-    row * FRAME_H,
-    FRAME_W,
-    FRAME_H,
+    col * fw,
+    row * fh,
+    fw,
+    fh,
     holiday.x - camera.x,
     holiday.y - camera.y,
     48,
@@ -270,9 +282,9 @@ function drawHoliday() {
   );
 }
 
-// --------------------
-// DRAW STITCH
-// --------------------
+// =====================
+// STITCH DRAW
+// =====================
 function drawStitch() {
   ctx.drawImage(
     stitchImg,
@@ -283,9 +295,9 @@ function drawStitch() {
   );
 }
 
-// --------------------
+// =====================
 // LOOP
-// --------------------
+// =====================
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
