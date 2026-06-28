@@ -27,14 +27,25 @@ function load(src) {
 }
 
 // =====================================================
-// CONSTANTS
+// SPRITE CONFIG
 // =====================================================
 const SPRITE_COLS = 4;
 const SPRITE_ROWS = 5;
 
-const TRASH_COLS = 8;
-const TRASH_ROWS = 10;
+// TRASH ATLAS (YOUR REAL DATA)
+const TRASH_COLS = 14;
+const TRASH_ROWS = 7;
 const TRASH_FRAMES = TRASH_COLS * TRASH_ROWS;
+
+// =====================================================
+// WORLD / CAMERA
+// =====================================================
+const world = {
+  width: 2000,
+  height: 1200
+};
+
+const camera = { x: 0, y: 0 };
 
 // =====================================================
 // INPUT
@@ -52,43 +63,32 @@ window.addEventListener("keyup", (e) => {
 });
 
 // =====================================================
-// WORLD
-// =====================================================
-const world = {
-  width: 2000,
-  height: 1200
-};
-
-const camera = { x: 0, y: 0 };
-
-// =====================================================
 // ENTITIES
 // =====================================================
-const player = createActor(120, 120);
-const holiday = createFollower(320, 260, 2);
-const stitch = createFollower(520, 180, 1.6);
+const player = makeActor(120, 120);
+const holiday = makeFollower(320, 260, 2);
+const stitch = makeFollower(520, 180, 1.6);
 
-// STATIC TRASH (NO ANIMATION)
 const trash = [
-  createTrash(260, 240),
-  createTrash(520, 320),
-  createTrash(740, 460),
-  createTrash(900, 300),
-  createTrash(1100, 500)
+  makeTrash(260, 240),
+  makeTrash(520, 320),
+  makeTrash(740, 460),
+  makeTrash(900, 300),
+  makeTrash(1100, 500)
 ];
 
+// =====================================================
+// GAME STATE
+// =====================================================
 let score = 0;
 
-// =====================================================
-// BEAM SYSTEM
-// =====================================================
 let beamActive = false;
 let beamPower = 0;
 
 // =====================================================
 // FACTORIES
 // =====================================================
-function createActor(x, y) {
+function makeActor(x, y) {
   return {
     x, y,
     dir: 0,
@@ -99,7 +99,7 @@ function createActor(x, y) {
   };
 }
 
-function createFollower(x, y, speed) {
+function makeFollower(x, y, speed) {
   return {
     x, y,
     speed,
@@ -109,7 +109,7 @@ function createFollower(x, y, speed) {
   };
 }
 
-function createTrash(x, y) {
+function makeTrash(x, y) {
   return {
     x,
     y,
@@ -170,14 +170,14 @@ function clamp(v, min, max) {
 }
 
 // =====================================================
-// TRASH (NO ANIMATION ANYMORE)
+// TRASH (NO ANIMATION — FIXED ROOT CAUSE)
 // =====================================================
 function updateTrash() {
-  // intentionally empty
+  // intentionally empty → prevents “cycling illusion”
 }
 
 // =====================================================
-// BEAM LOGIC
+// BEAM SYSTEM
 // =====================================================
 function beamStart() {
   beamActive = true;
@@ -214,7 +214,7 @@ function burstClean() {
 }
 
 // =====================================================
-// SPRITE RENDER
+// SPRITE RENDER (PLAYER / NPCs)
 // =====================================================
 function drawSprite(img, e) {
   if (!img || !img.complete || img.width === 0) return;
@@ -236,7 +236,7 @@ function drawSprite(img, e) {
 }
 
 // =====================================================
-// TRASH RENDER (FIXED STATIC SPRITESHEET USAGE)
+// TRASH RENDER (CORRECT 14x7 ATLAS)
 // =====================================================
 function drawTrash() {
   const img = assets.trash;
@@ -307,7 +307,6 @@ function loop() {
   updateFollower(holiday);
   updateFollower(stitch);
   updateBeam();
-  updateTrash();
   updateCamera();
 
   ctx.drawImage(assets.bg, 0, 0, canvas.width, canvas.height);
