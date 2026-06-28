@@ -225,18 +225,17 @@ function updateAnimation() {
 // BACKGROUND (SAFE + ALWAYS VISIBLE)
 // =====================
 function drawBackground() {
-  ctx.fillStyle = "#0b0b0b";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
   if (!bgReady) return;
 
-  const scale = 4; // 👈 key fix: make skyline actually visible
+  // scale so it actually becomes visible in gameplay world
+  const scale = 6;
 
   const w = bgImg.width * scale;
   const h = bgImg.height * scale;
 
-  const x = (canvas.width - w) / 2 - camera.x * 0.1;
-  const y = (canvas.height - h) / 2 - camera.y * 0.1;
+  // world-space positioning (NOT screen-centered)
+  const x = -camera.x * 0.2 + (world.width / 2 - w / 2);
+  const y = -camera.y * 0.2 + (world.height / 2 - h / 2);
 
   ctx.drawImage(bgImg, x, y, w, h);
 }
