@@ -1,25 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Spirit of Toronto</title>
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      margin: 0 auto;
-      background: #111;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Spirit of Toronto Game</title>
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  #game-container {
+    position: relative;
+    width: 1376px;
+    height: 768px;
+  }
+
+  canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    background: transparent;
+  }
+
+  #ui {
+    position: absolute;
+    z-index: 10;
+    color: white;
+    font-family: Arial;
+    padding: 10px;
+  }
+</style>
 </head>
+
 <body>
 
-<canvas id="gameCanvas" width="800" height="600"></canvas>
+<div id="game-container">
+  <canvas id="game" width="1376" height="768"></canvas>
+  <div id="ui">Retro Toronto Prototype</div>
+</div>
 
-<script src="game.js"></script>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// ===== LOAD BACKGROUND =====
+const background = new Image();
+background.src = "your-background.png"; // <-- PUT YOUR NEW IMAGE PATH HERE
+
+// ===== PLAYER =====
+const player = {
+  x: 200,
+  y: 500,
+  w: 50,
+  h: 50,
+  speed: 5
+};
+
+// Simple placeholder sprite (replace later)
+const playerImg = new Image();
+playerImg.src = "https://via.placeholder.com/50";
+
+// ===== INPUT =====
+const keys = {};
+
+window.addEventListener("keydown", (e) => keys[e.key] = true);
+window.addEventListener("keyup", (e) => keys[e.key] = false);
+
+// ===== UPDATE =====
+function update() {
+  if (keys["ArrowLeft"]) player.x -= player.speed;
+  if (keys["ArrowRight"]) player.x += player.speed;
+  if (keys["ArrowUp"]) player.y -= player.speed;
+  if (keys["ArrowDown"]) player.y += player.speed;
+}
+
+// ===== DRAW =====
+function draw() {
+  // 1. Background (ALWAYS FIRST)
+  ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+  // Optional dark overlay for retro feel
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 2. Player
+  ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+
+  // 3. Simple debug text
+  ctx.fillStyle = "white";
+  ctx.font = "16px Arial";
+  ctx.fillText("Use arrow keys to move", 20, 30);
+}
+
+// ===== GAME LOOP =====
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Start after background loads
+background.onload = () => {
+  loop();
+};
+</script>
 
 </body>
 </html>
