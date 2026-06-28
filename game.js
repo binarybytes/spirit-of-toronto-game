@@ -4,7 +4,7 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // =====================
-// CANVAS SIZE
+// CANVAS
 // =====================
 canvas.width = 800;
 canvas.height = 600;
@@ -24,24 +24,15 @@ holidayImg.src = "assets/holiday.png";
 const stitchImg = new Image();
 stitchImg.src = "assets/stitch.png";
 
+const trashImg = new Image();
+trashImg.src = "assets/trash.png"; // sprite sheet (4x4)
+
 // =====================
 // LOAD FLAGS
 // =====================
 let bgReady = false;
-let spiritReady = false;
-let holidayReady = false;
-let stitchReady = false;
 
 bgImg.onload = () => bgReady = true;
-spiritImg.onload = () => spiritReady = true;
-holidayImg.onload = () => holidayReady = true;
-stitchImg.onload = () => stitchReady = true;
-
-// ERROR HANDLING (IMPORTANT FIX)
-bgImg.onerror = () => console.log("❌ background failed");
-spiritImg.onerror = () => console.log("❌ spirit failed");
-holidayImg.onerror = () => console.log("❌ holiday failed");
-stitchImg.onerror = () => console.log("❌ stitch failed");
 
 // =====================
 // WORLD
@@ -75,8 +66,18 @@ const camera = { x: 0, y: 0 };
 // INPUT
 // =====================
 const keys = {};
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+
+document.addEventListener("keydown", (e) => {
+  keys[e.key] = true;
+
+  if (e.code === "Space") {
+    cleanTrash();
+  }
+});
+
+document.addEventListener("keyup", (e) => {
+  keys[e.key] = false;
+});
 
 // =====================
 // SPRITE SETTINGS
@@ -98,26 +99,22 @@ const player = {
 };
 
 // =====================
-// HOLIDAY
+// COMPANIONS
 // =====================
-const holiday = {
-  x: 300,
-  y: 300,
-  frame: 0,
-  tick: 0,
-  dir: 0
-};
+const holiday = { x: 300, y: 300 };
+const stitch = { x: 500, y: 200 };
 
 // =====================
-// STITCH
+// TRASH SYSTEM
 // =====================
-const stitch = {
-  x: 500,
-  y: 200,
-  frame: 0,
-  tick: 0,
-  dir: 0
-};
+const trash = [
+  { x: 250, y: 250, cleaned: false, frame: 0, tick: 0 },
+  { x: 500, y: 300, cleaned: false, frame: 0, tick: 0 },
+  { x: 700, y: 450, cleaned: false, frame: 0, tick: 0 },
+  { x: 350, y: 500, cleaned: false, frame: 0, tick: 0 }
+];
+
+let score = 0;
 
 // =====================
 // COLLISION
@@ -132,10 +129,10 @@ function blocked(x, y) {
 // PLAYER UPDATE
 // =====================
 function updatePlayer() {
-  player.moving = false;
-
   let nx = player.x;
   let ny = player.y;
+
+  player.moving = false;
 
   if (keys["ArrowUp"]) {
     ny -= player.speed;
@@ -160,28 +157,22 @@ function updatePlayer() {
 }
 
 // =====================
-// FOLLOW SYSTEM
+// COMPANION FOLLOW
 // =====================
-function updateHoliday() {
-  const dx = player.x - holiday.x;
-  const dy = player.y - holiday.y;
-  const d = Math.sqrt(dx * dx + dy * dy);
+function updateFollowers() {
+  const follow = (obj, speed) => {
+    const dx = player.x - obj.x;
+    const dy = player.y - obj.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
 
-  if (d > 2) {
-    holiday.x += (dx / d) * 2;
-    holiday.y += (dy / d) * 2;
-  }
-}
+    if (d > 2) {
+      obj.x += (dx / d) * speed;
+      obj.y += (dy / d) * speed;
+    }
+  };
 
-function updateStitch() {
-  const dx = player.x - stitch.x;
-  const dy = player.y - stitch.y;
-  const d = Math.sqrt(dx * dx + dy * dy);
-
-  if (d > 3) {
-    stitch.x += (dx / d) * 1.5;
-    stitch.y += (dy / d) * 1.5;
-  }
+  follow(holiday, 2);
+  follow(stitch, 1.5);
 }
 
 // =====================
@@ -196,50 +187,52 @@ function updateCamera() {
 }
 
 // =====================
-// SAFE SPRITE DRAW (CRASH FIX)
+// TRASH ANIMATION
 // =====================
-function drawSprite(img, obj) {
-  if (!img || !img.complete || img.naturalWidth === 0) return;
+function updateTrash() {
+  trash.forEach(t => {
+    if (t.cleaned) return;
 
-  const fw = img.naturalWidth / COLS;
-  const fh = img.naturalHeight / ROWS;
-
-  if (!fw || !fh) return;
-
-  ctx.drawImage(
-    img,
-    obj.frame * fw,
-    obj.dir * fh,
-    fw,
-    fh,
-    obj.x - camera.x,
-    obj.y - camera.y,
-    48,
-    48
-  );
+    t.tick++;
+    if (t.tick % 10 === 0) {
+      t.frame = (t.frame + 1) % 16;
+    }
+  });
 }
 
 // =====================
-// BACKGROUND
+// CLEAN SYSTEM (SPACE BAR)
+// =====================
+function cleanTrash() {
+  trash.forEach(t => {
+    if (t.cleaned) return;
+
+    const dist = Math.hypot(player.x - t.x, player.y - t.y);
+
+    if (dist < 45) {
+      t.cleaned = true;
+      score++;
+    }
+  });
+}
+
+// =====================
+// DRAW BACKGROUND
 // =====================
 function drawBackground() {
   if (!bgReady) return;
 
-  const scaleX = canvas.width / bgImg.width;
-  const scaleY = canvas.height / bgImg.height;
-
-  const scale = Math.min(scaleX, scaleY);
-
-  const w = bgImg.width * scale;
-  const h = bgImg.height * scale;
-
-  const x = (canvas.width - w) / 2;
-  const y = (canvas.height - h) / 2;
-
-  ctx.drawImage(bgImg, x, y, w, h);
+  ctx.drawImage(
+    bgImg,
+    -camera.x * 0.1,
+    -camera.y * 0.1,
+    canvas.width,
+    canvas.height
+  );
 }
+
 // =====================
-// MAP
+// DRAW MAP
 // =====================
 function drawMap() {
   for (let r = 0; r < map.length; r++) {
@@ -259,18 +252,41 @@ function drawMap() {
 }
 
 // =====================
-// DRAW ENTITIES
+// DRAW SPRITE SHEET (TRASH)
 // =====================
-function drawPlayer() {
-  drawSprite(spiritImg, player);
+function drawTrash() {
+  if (!trashImg.complete || trashImg.naturalWidth === 0) return;
+
+  const cols = 4;
+  const rows = 4;
+
+  const fw = trashImg.naturalWidth / cols;
+  const fh = trashImg.naturalHeight / rows;
+
+  trash.forEach(t => {
+    if (t.cleaned) return;
+
+    const fx = (t.frame % cols) * fw;
+    const fy = Math.floor(t.frame / cols) * fh;
+
+    ctx.drawImage(
+      trashImg,
+      fx, fy, fw, fh,
+      t.x - camera.x,
+      t.y - camera.y,
+      48,
+      48
+    );
+  });
 }
 
-function drawHoliday() {
-  drawSprite(holidayImg, holiday);
-}
+// =====================
+// DRAW PLAYER + NPCS
+// =====================
+function drawSimple(img, x, y) {
+  if (!img.complete) return;
 
-function drawStitch() {
-  drawSprite(stitchImg, stitch);
+  ctx.drawImage(img, x - camera.x, y - camera.y, 48, 48);
 }
 
 // =====================
@@ -280,16 +296,22 @@ function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   updatePlayer();
-  updateHoliday();
-  updateStitch();
+  updateFollowers();
+  updateTrash();
   updateCamera();
 
   drawBackground();
   drawMap();
 
-  drawStitch();
-  drawHoliday();
-  drawPlayer();
+  drawTrash();
+
+  drawSimple(stitchImg, stitch.x, stitch.y);
+  drawSimple(holidayImg, holiday.x, holiday.y);
+  drawSimple(spiritImg, player.x, player.y);
+
+  ctx.fillStyle = "white";
+  ctx.font = "16px Arial";
+  ctx.fillText("Score: " + score, 20, 40);
 
   requestAnimationFrame(loop);
 }
