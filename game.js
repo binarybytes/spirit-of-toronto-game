@@ -2,6 +2,12 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // =====================
+// FORCE CANVAS SIZE (CRITICAL FIX)
+// =====================
+canvas.width = 800;
+canvas.height = 600;
+
+// =====================
 // IMAGES
 // =====================
 const bgImg = new Image();
@@ -23,6 +29,21 @@ let bgReady = false;
 let spiritReady = false;
 let holidayReady = false;
 let stitchReady = false;
+
+// =====================
+// SAFE LOAD LOGGING
+// =====================
+bgImg.onload = () => bgReady = true;
+bgImg.onerror = () => console.log("BG FAILED");
+
+spiritImg.onload = () => spiritReady = true;
+spiritImg.onerror = () => console.log("SPIRIT FAILED");
+
+holidayImg.onload = () => holidayReady = true;
+holidayImg.onerror = () => console.log("HOLIDAY FAILED");
+
+stitchImg.onload = () => stitchReady = true;
+stitchImg.onerror = () => console.log("STITCH FAILED");
 
 // =====================
 // WORLD
@@ -60,6 +81,12 @@ document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
 // =====================
+// SPRITE SETTINGS (ALL 4x5)
+// =====================
+const COLS = 4;
+const ROWS = 5;
+
+// =====================
 // PLAYER (SPIRIT)
 // =====================
 const player = {
@@ -73,38 +100,26 @@ const player = {
 };
 
 // =====================
-// HOLIDAY (RESTORED SIMPLE WORKING STYLE)
+// HOLIDAY
 // =====================
 const holiday = {
   x: 300,
   y: 300,
   frame: 0,
   tick: 0,
-  cols: 4,
-  rows: 5
+  dir: 0
 };
 
 // =====================
-// STITCH (FIXED SPRITE SHEET)
+// STITCH
 // =====================
 const stitch = {
   x: 500,
   y: 200,
   frame: 0,
   tick: 0,
-  cols: 4,
-  rows: 5,
   dir: 0
 };
-
-// =====================
-// LOAD HANDLERS
-// =====================
-bgImg.onload = () => bgReady = true;
-
-spiritImg.onload = () => spiritReady = true;
-holidayImg.onload = () => holidayReady = true;
-stitchImg.onload = () => stitchReady = true;
 
 // =====================
 // COLLISION
@@ -147,7 +162,7 @@ function updatePlayer() {
 }
 
 // =====================
-// HOLIDAY (RESTORED FOLLOW AI)
+// HOLIDAY FOLLOW (SAFE)
 // =====================
 function updateHoliday() {
   const dx = player.x - holiday.x;
@@ -161,18 +176,22 @@ function updateHoliday() {
 
   holiday.tick++;
   if (holiday.tick % 12 === 0) {
-    holiday.frame = (holiday.frame + 1) % holiday.cols;
+    holiday.frame = (holiday.frame + 1) % COLS;
   }
+
+  holiday.dir = Math.abs(dx) > Math.abs(dy)
+    ? (dx > 0 ? 3 : 2)
+    : (dy > 0 ? 0 : 1);
 }
 
 // =====================
-// STITCH (FIXED ANIMATION ONLY)
+// STITCH UPDATE (SAFE)
 // =====================
 function updateStitch() {
   stitch.tick++;
 
   if (stitch.tick % 12 === 0) {
-    stitch.frame = (stitch.frame + 1) % stitch.cols;
+    stitch.frame = (stitch.frame + 1) % COLS;
   }
 
   stitch.dir = 0;
@@ -200,19 +219,18 @@ function updateAnimation() {
 
   player.tick++;
   if (player.tick % 10 === 0) {
-    player.frame = (player.frame + 1) % 4;
+    player.frame = (player.frame + 1) % COLS;
   }
 }
 
 // =====================
-// BACKGROUND (SAFE + ALWAYS VISIBLE)
+// BACKGROUND (FAILSAFE)
 // =====================
 function drawBackground() {
-  if (!bgReady) {
-    ctx.fillStyle = "#0b0b0b";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    return;
-  }
+  ctx.fillStyle = "#0b0b0b";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!bgReady) return;
 
   ctx.drawImage(
     bgImg,
@@ -239,11 +257,13 @@ function drawMap() {
 }
 
 // =====================
-// SPRITE DRAWER
+// SPRITE DRAW SAFE
 // =====================
 function drawSprite(img, obj) {
-  const fw = img.width / obj.cols;
-  const fh = img.height / obj.rows;
+  if (!img || img.width === 0) return;
+
+  const fw = img.width / COLS;
+  const fh = img.height / ROWS;
 
   ctx.drawImage(
     img,
@@ -262,11 +282,7 @@ function drawSprite(img, obj) {
 // DRAW ENTITIES
 // =====================
 function drawPlayer() {
-  drawSprite(spiritImg, {
-    ...player,
-    cols: 4,
-    rows: 5
-  });
+  drawSprite(spiritImg, player);
 }
 
 function drawHoliday() {
@@ -278,11 +294,22 @@ function drawStitch() {
 }
 
 // =====================
+// DEBUG OVERLAY (IMPORTANT)
+// =====================
+function drawDebug() {
+  ctx.fillStyle = "white";
+  ctx.font = "12px Arial";
+
+  ctx.fillText("BG: " + bgReady, 10, 20);
+  ctx.fillText("Spirit: " + spiritReady, 10, 40);
+  ctx.fillText("Holiday: " + holidayReady, 10, 60);
+  ctx.fillText("Stitch: " + stitchReady, 10, 80);
+}
+
+// =====================
 // LOOP
 // =====================
 function loop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   updatePlayer();
   updateHoliday();
   updateStitch();
@@ -294,11 +321,9 @@ function loop() {
   drawStitch();
   drawHoliday();
   drawPlayer();
+  drawDebug();
 
   requestAnimationFrame(loop);
 }
 
-// =====================
-// START
-// =====================
 loop();
