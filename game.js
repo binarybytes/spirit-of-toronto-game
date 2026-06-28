@@ -2,23 +2,12 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // --------------------
-// LOAD IMAGE
+// LOAD SPRITE SHEET
 // --------------------
 const spiritImg = new Image();
 spiritImg.src = "assets/spirit.png";
 
 let loaded = false;
-
-// only start when image is ready
-spiritImg.onload = () => {
-  console.log("Spirit loaded");
-  loaded = true;
-  requestAnimationFrame(loop);
-};
-
-spiritImg.onerror = () => {
-  console.log("FAILED to load spirit.png");
-};
 
 // --------------------
 // PLAYER
@@ -43,7 +32,35 @@ document.addEventListener("keyup", (e) => {
 });
 
 // --------------------
-// UPDATE LOGIC
+// SPRITE SHEET CONFIG (4x5)
+// --------------------
+const COLS = 4;
+const ROWS = 5;
+
+let FRAME_W = 0;
+let FRAME_H = 0;
+
+// animation
+let frame = 0;
+let tick = 0;
+const MAX_FRAMES = 4; // adjust if your animation uses more frames
+
+// --------------------
+// WHEN IMAGE LOADS
+// --------------------
+spiritImg.onload = () => {
+  console.log("Sprite loaded");
+
+  FRAME_W = spiritImg.width / COLS;
+  FRAME_H = spiritImg.height / ROWS;
+
+  loaded = true;
+
+  loop();
+};
+
+// --------------------
+// UPDATE
 // --------------------
 function update() {
   if (keys["ArrowUp"]) player.y -= player.speed;
@@ -53,13 +70,24 @@ function update() {
 }
 
 // --------------------
-// DRAW BACKGROUND (always visible)
+// ANIMATION UPDATE
+// --------------------
+function updateAnimation() {
+  tick++;
+
+  if (tick % 10 === 0) {
+    frame = (frame + 1) % MAX_FRAMES;
+  }
+}
+
+// --------------------
+// DRAW BACKGROUND
 // --------------------
 function drawBackground() {
   ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // grid so you can see movement
+  // grid for debugging movement
   ctx.strokeStyle = "#333";
 
   for (let x = 0; x < canvas.width; x += 40) {
@@ -78,25 +106,44 @@ function drawBackground() {
 }
 
 // --------------------
-// DRAW PLAYER
+// DRAW PLAYER (SLICED SPRITE SHEET)
 // --------------------
 function drawPlayer() {
-  if (loaded) {
-    ctx.drawImage(spiritImg, player.x, player.y, 48, 48);
-  } else {
-    // fallback so you ALWAYS see something
+  if (!loaded) {
     ctx.fillStyle = "red";
     ctx.fillRect(player.x, player.y, 40, 40);
+    return;
   }
+
+  const col = frame % COLS;
+  const row = Math.floor(frame / COLS); // assumes animation is row 0
+
+  ctx.drawImage(
+    spiritImg,
+
+    col * FRAME_W,
+    row * FRAME_H,
+
+    FRAME_W,
+    FRAME_H,
+
+    player.x,
+    player.y,
+
+    48,
+    48
+  );
 }
 
 // --------------------
-// MAIN LOOP
+// LOOP
 // --------------------
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   update();
+  updateAnimation();
+
   drawBackground();
   drawPlayer();
 
